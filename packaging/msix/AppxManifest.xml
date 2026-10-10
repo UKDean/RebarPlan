@@ -34,9 +34,7 @@
         Description="Bar bending schedule and rebar cutting plan"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Square310x310Logo="Assets\Square310x310Logo.png" />
-      </uap:VisualElements>
+        Square44x44Logo="Assets\Square44x44Logo.png" />
     </Application>
   </Applications>
 
