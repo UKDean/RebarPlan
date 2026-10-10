@@ -2,8 +2,8 @@ name: Microsoft Store package
 
 # Builds RebarPlan.msix for upload to Partner Center. The Store signs the
 # package itself, so no certificate is needed. Run it by hand from the
-# Actions tab with the three values from Partner Center → Product identity
-# (see docs/MSSTORE.md). Leave them as they are for a test build.
+# Actions tab. The defaults are RebarPlan's values from Partner Center →
+# Product identity (Store ID 9PM9HL3XFBZ3); see docs/MSSTORE.md.
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +12,7 @@ on:
         default: "OmarMashharawi.RebarPlan"
       publisher:
         description: "Package/Identity/Publisher (e.g. CN=1A2B3C4D-...)"
-        default: "CN=RebarPlan"
+        default: "CN=0012386F-1942-4E6B-B8E9-34E2FE5751A9"
       publisher_display_name:
         description: "Package/Properties/PublisherDisplayName"
         default: "Omar Mashharawi"
