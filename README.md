@@ -33,7 +33,7 @@ npx tauri dev     # run the app
 npx tauri build   # build the installer
 ```
 
-Signed macOS builds and the Mac App Store package: see [docs/APPSTORE.md](docs/APPSTORE.md) and `scripts/macos-release.sh`.
+Signed macOS builds and the Mac App Store package: see [docs/APPSTORE.md](docs/APPSTORE.md) and `scripts/macos-release.sh`. Microsoft Store package: see [docs/MSSTORE.md](docs/MSSTORE.md).
 
 The interface is plain HTML, CSS and JavaScript in `src/`; the cutting algorithm is `src/js/optimizer.js` and the shapes and weights are in `src/js/bbs.js`. The Windows shell is [Tauri 2](https://tauri.app) in `src-tauri/`.
 
