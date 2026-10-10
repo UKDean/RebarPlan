@@ -217,7 +217,7 @@ function rowHtml(r, i) {
     <td><div class="shape">${shapeIcon(r.shape)}<select class="cell" data-i="${i}" data-k="shape" aria-label="${t('colShape')}">${[...new Set([...shapesFor(project.settings.standard), r.shape])].map((c) => `<option value="${c}"${c === r.shape ? ' selected' : ''}>${/^\d/.test(c) ? c + ' · ' : ''}${t('shape' + c)}</option>`).join('')}</select></div></td>
     <td><div class="dims">${dims}</div></td>
     <td class="out${Number.isFinite(tot.cut) ? '' : ' bad'}" data-out="cut">${fmt(tot.cut)}</td>
-    <td style="width:86px"><input class="cell num" data-i="${i}" data-k="qty" value="${esc(r.qty)}" inputmode="numeric" aria-label="${t('colQty')}"></td>
+    <td><input class="cell num" data-i="${i}" data-k="qty" value="${esc(r.qty)}" inputmode="numeric" aria-label="${t('colQty')}"></td>
     <td class="out" data-out="kg">${fmt(tot.kg, 1)}</td>
     <td><div class="rowtools"><button class="icon" data-act="dup" data-i="${i}" title="${t('duplicate')}" aria-label="${t('duplicate')}">${icon('copy')}</button><button class="icon del" data-act="del" data-i="${i}" title="${t('remove')}" aria-label="${t('remove')}">${icon('trash')}</button></div></td>
   </tr>`;

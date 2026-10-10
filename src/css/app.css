@@ -107,6 +107,7 @@ select.cell option{background:var(--panel)}
 .sched table{min-width:880px}
 .cell[data-k=mark]{min-width:78px}
 .cell[data-k=member]{min-width:70px}
+.cell[data-k=qty]{min-width:72px}
 select.cell[data-k=dia]{min-width:62px}
 select.cell[data-k=shape]{min-width:128px}
 .dia{color:var(--acc);font-family:var(--mono)}
