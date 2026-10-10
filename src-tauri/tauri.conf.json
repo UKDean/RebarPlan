@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": "all",
     "publisher": "Omar Mashharawi",
     "copyright": "© 2026 Omar Mashharawi. MIT licence.",
     "homepage": "https://mashharawi.com/tools/rebarplan/",
