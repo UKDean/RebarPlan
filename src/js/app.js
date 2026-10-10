@@ -67,7 +67,7 @@ let plans = {};          // dia -> optimiser result
 let planKey = '';        // schedule fingerprint the plans were built from
 let view = 'schedule';
 let dirty = false;
-let version = 'dev';
+let version = '1.0.0';
 
 const persist = () => store.set(AUTOSAVE, JSON.stringify(project));
 const fingerprint = () => JSON.stringify([project.rows.map((r) => [r.dia, cutLength(r), r.qty]), project.settings]);

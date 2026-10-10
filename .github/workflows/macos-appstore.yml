@@ -1,0 +1,116 @@
+name: Mac App Store upload
+
+# Builds the sandboxed Mac App Store version, signs it, packages it as a .pkg
+# and uploads it to App Store Connect. Run it by hand from the Actions tab.
+# Needs the repository secrets listed in docs/APPSTORE.md.
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to App Store Connect (untick to only build the .pkg)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  appstore:
+    runs-on: macos-latest
+    env:
+      KEYCHAIN: ${{ github.workspace }}/../appstore.keychain-db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: node --test "tests/*.test.mjs"
+
+      - name: Check secrets
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          P12: ${{ secrets.APPSTORE_CERTIFICATES_P12 }}
+          PROFILE: ${{ secrets.APPSTORE_PROVISION_PROFILE }}
+        run: |
+          missing=""
+          [ -n "$TEAM" ] || missing="$missing APPLE_TEAM_ID"
+          [ -n "$P12" ] || missing="$missing APPSTORE_CERTIFICATES_P12"
+          [ -n "$PROFILE" ] || missing="$missing APPSTORE_PROVISION_PROFILE"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing (see docs/APPSTORE.md)"; exit 1; fi
+
+      - name: Import signing certificates
+        env:
+          P12: ${{ secrets.APPSTORE_CERTIFICATES_P12 }}
+          P12_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATES_PASSWORD }}
+        run: |
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certs.p12"
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certs.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          APP_ID=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -E '"(Apple Distribution|3rd Party Mac Developer Application):' | head -1 | sed -E 's/.*"(.*)"/\1/')
+          PKG_ID=$(security find-identity -v "$KEYCHAIN" | grep -E '"(Mac Installer Distribution|3rd Party Mac Developer Installer):' | head -1 | sed -E 's/.*"(.*)"/\1/')
+          [ -n "$APP_ID" ] || { echo "::error::No 'Apple Distribution' identity in the .p12"; exit 1; }
+          [ -n "$PKG_ID" ] || { echo "::error::No 'Mac Installer Distribution' identity in the .p12"; exit 1; }
+          echo "APP_IDENTITY=$APP_ID" >> "$GITHUB_ENV"
+          echo "PKG_IDENTITY=$PKG_ID" >> "$GITHUB_ENV"
+          echo "Signing app with: $APP_ID"
+          echo "Signing pkg with: $PKG_ID"
+
+      - name: Provisioning profile and entitlements
+        env:
+          PROFILE: ${{ secrets.APPSTORE_PROVISION_PROFILE }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "$PROFILE" | base64 --decode > src-tauri/embedded.provisionprofile
+          sed -i '' "s/TEAM_ID/$TEAM/g" src-tauri/Entitlements.appstore.plist
+          # Every upload needs a new build number.
+          node -e '
+            const fs = require("fs");
+            const c = JSON.parse(fs.readFileSync("src-tauri/tauri.appstore.conf.json", "utf8"));
+            c.bundle.macOS.bundleVersion = process.argv[1];
+            fs.writeFileSync("src-tauri/tauri.appstore.ci.json", JSON.stringify(c));
+          ' "${{ github.run_number }}"
+
+      - name: Build the App Store app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ env.APP_IDENTITY }}
+        run: npx tauri build --bundles app --target universal-apple-darwin --config src-tauri/tauri.appstore.ci.json
+
+      - name: Package as .pkg
+        run: |
+          APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/RebarPlan.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          xcrun productbuild --sign "$PKG_IDENTITY" --component "$APP" /Applications RebarPlan-AppStore.pkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RebarPlan-AppStore-pkg
+          path: RebarPlan-AppStore.pkg
+
+      - name: Upload to App Store Connect
+        if: ${{ inputs.upload }}
+        env:
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          [ -n "$ISSUER" ] && [ -n "$KEY_ID" ] && [ -n "$KEY" ] || { echo "::error::Missing APPLE_API_ISSUER / APPLE_API_KEY_ID / APPLE_API_PRIVATE_KEY"; exit 1; }
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$KEY" > ~/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8
+          xcrun altool --upload-app --type macos --file RebarPlan-AppStore.pkg --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+
+      - name: Clean up
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/certs.p12" src-tauri/embedded.provisionprofile ~/.appstoreconnect/private_keys/*.p8

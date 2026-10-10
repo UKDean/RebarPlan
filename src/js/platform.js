@@ -69,5 +69,5 @@ export async function openLink(url) {
 }
 
 export async function appVersion() {
-  return isDesktop ? tauri.app.getVersion() : 'dev';
+  return isDesktop ? tauri.app.getVersion() : '1.0.0';
 }

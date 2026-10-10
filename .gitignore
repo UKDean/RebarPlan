@@ -3,3 +3,9 @@ src-tauri/target/
 src-tauri/gen/
 .DS_Store
 .claude/
+src-tauri/embedded.provisionprofile
+src-tauri/tauri.appstore.ci.json
+*.p12
+*.p8
+dist/
+src-tauri/Entitlements.appstore.local.plist

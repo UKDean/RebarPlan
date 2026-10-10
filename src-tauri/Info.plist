@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the macOS app's Info.plist by Tauri. -->
+<plist version="1.0">
+<dict>
+  <!-- No encryption beyond what macOS provides: skips the export compliance question on upload. -->
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>ar</string>
+    <string>en</string>
+    <string>zh-Hans</string>
+  </array>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.productivity</string>
+</dict>
+</plist>

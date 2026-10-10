@@ -45,6 +45,32 @@ jobs:
       - run: npm ci
       - run: node --test "tests/*.test.mjs"
 
+      # Developer ID signing and notarization for the downloadable .dmg. Runs
+      # only once the secrets in docs/APPSTORE.md exist; without them the
+      # build is unsigned, as before.
+      - name: macOS signing (optional)
+        if: runner.os == 'macOS'
+        env:
+          CERT: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          if [ -z "$CERT" ]; then echo "No Developer ID certificate: building unsigned."; exit 0; fi
+          {
+            echo "APPLE_CERTIFICATE=$CERT"
+            echo "APPLE_CERTIFICATE_PASSWORD=$CERT_PASSWORD"
+          } >> "$GITHUB_ENV"
+          if [ -n "$ISSUER" ] && [ -n "$KEY_ID" ] && [ -n "$KEY" ]; then
+            printf '%s' "$KEY" > "$RUNNER_TEMP/AuthKey.p8"
+            {
+              echo "APPLE_API_ISSUER=$ISSUER"
+              echo "APPLE_API_KEY=$KEY_ID"
+              echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8"
+            } >> "$GITHUB_ENV"
+          fi
+
       - name: Build and publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: tauri-apps/tauri-action@v0
