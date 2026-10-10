@@ -1,0 +1,67 @@
+name: Microsoft Store package
+
+# Builds RebarPlan.msix for upload to Partner Center. The Store signs the
+# package itself, so no certificate is needed. Run it by hand from the
+# Actions tab with the three values from Partner Center → Product identity
+# (see docs/MSSTORE.md). Leave them as they are for a test build.
+on:
+  workflow_dispatch:
+    inputs:
+      identity_name:
+        description: "Package/Identity/Name (e.g. 12345OmarMashharawi.RebarPlan)"
+        default: "OmarMashharawi.RebarPlan"
+      publisher:
+        description: "Package/Identity/Publisher (e.g. CN=1A2B3C4D-...)"
+        default: "CN=RebarPlan"
+      publisher_display_name:
+        description: "Package/Properties/PublisherDisplayName"
+        default: "Omar Mashharawi"
+
+permissions:
+  contents: read
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: node --test "tests/*.test.mjs"
+      - name: Build the app
+        run: npx tauri build --no-bundle
+
+      - name: Assemble and pack the MSIX
+        shell: pwsh
+        env:
+          ID_NAME: ${{ inputs.identity_name }}
+          PUBLISHER: ${{ inputs.publisher }}
+          PUBLISHER_NAME: ${{ inputs.publisher_display_name }}
+        run: |
+          # The Store wants four parts with the last one 0: 1.0.0 -> 1.0.0.0
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version + ".0"
+          $stage = "msix-stage"
+          New-Item -ItemType Directory -Force "$stage/Assets" | Out-Null
+          Copy-Item src-tauri/target/release/rebarplan.exe $stage/
+          foreach ($f in "StoreLogo.png", "Square44x44Logo.png", "Square150x150Logo.png", "Square310x310Logo.png") {
+            Copy-Item "src-tauri/icons/$f" "$stage/Assets/$f"
+          }
+          $m = Get-Content packaging/msix/AppxManifest.xml -Raw
+          $m = $m.Replace("IDENTITY_NAME", $env:ID_NAME).Replace("PUBLISHER_DISPLAY_NAME", [Security.SecurityElement]::Escape($env:PUBLISHER_NAME))
+          $m = $m.Replace("Publisher=`"PUBLISHER`"", "Publisher=`"$([Security.SecurityElement]::Escape($env:PUBLISHER))`"").Replace("VERSION", $version)
+          Set-Content "$stage/AppxManifest.xml" $m -Encoding utf8
+          $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          & $makeappx.FullName pack /d $stage /p "RebarPlan_$version.msix" /o
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-Item "RebarPlan_$version.msix" | Format-List Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RebarPlan-MicrosoftStore
+          path: RebarPlan_*.msix
