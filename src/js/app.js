@@ -2,7 +2,6 @@ import { DIAMETERS, SHAPES, cutLength, rowTotals, summary, kgPerMetre, shapesFor
 import { optimise } from './optimizer.js';
 import { LANGS, t, setLang, getLang } from './i18n.js';
 import { importSchedule, exportWorkbook, templateWorkbook, weightsWorkbook, patternName } from './excel.js';
-import { FAMILIES, family, kgPerMetre as sectionKgPerMetre, designation, outline } from './sections.js';
 import { pickFile, saveFile, emailFile, openLink, appVersion } from './platform.js';
 
 const SUPPORT_EMAIL = 'info@mashharawi.com';
@@ -358,67 +357,52 @@ function workshopView() {
     <div class="card"><h3>${t('labels')}<span class="no-print">${t('labelsHint')}</span></h3><div class="labels">${labels}</div></div>`;
 }
 
-// ---------- weight calculator ----------
+// ---------- rebar weights ----------
 
 // Kept apart from the project: a weight list is a quick enquiry, not part of
 // the bar schedule, so it survives New/Open and is not saved in .rebarplan files.
 const WEIGHTS = 'rebarplan.weights';
-const wDefaultSize = (f) => (f.sizes ? Math.floor(f.sizes.length / 3) : 0);
-function wDefaults() {
-  const manual = {};
-  for (const f of FAMILIES) if (f.manual) manual[f.key] = Object.fromEntries(f.manual);
-  return { fam: 'rebar', size: DIAMETERS.indexOf(16), manual, quick: false, length: 12, qty: 100, list: [] };
-}
 function wLoad() {
-  const d = wDefaults();
+  const d = { dia: 16, length: 12, qty: 100, list: [] };
   try {
     const w = JSON.parse(store.get(WEIGHTS));
-    if (!w || !Array.isArray(w.list)) return d;
-    return { ...d, ...w, manual: { ...d.manual, ...w.manual }, fam: family(w.fam).key };
+    if (!w) return d;
+    return {
+      dia: DIAMETERS.includes(w.dia) ? w.dia : d.dia,
+      length: w.length > 0 ? w.length : d.length,
+      qty: w.qty > 0 ? w.qty : d.qty,
+      list: Array.isArray(w.list) ? w.list.filter((l) => DIAMETERS.includes(l.dia)) : [],
+    };
   } catch { return d; }
 }
 let weights = wLoad();
 const wSave = () => store.set(WEIGHTS, JSON.stringify(weights));
-const famName = (k) => { const n = t('fam_' + k); return n === 'fam_' + k ? k.toUpperCase() : n; };
 const fmtLen = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 3 }) : '—');
 
-function wCurrent() {
-  const f = family(weights.fam);
-  const dims = f.manual ? weights.manual[f.key] : f.sizes[Math.min(weights.size, f.sizes.length - 1)];
-  return { f, dims, kgm: sectionKgPerMetre(f.shape, dims, weights.quick), size: designation(f, dims) };
-}
-
-function wKpis(c) {
-  const ok = Number.isFinite(c.kgm);
-  const piece = c.kgm * weights.length;
+function wKpis() {
+  const kgm = kgPerMetre(weights.dia);
+  const bar = kgm * weights.length;
   return `<div class="kpis">
-    <div class="kpi hl"><span>${t('wKgM')}</span><div>${ok ? fmt(c.kgm, 3) : '—'}<small>${t('kgm')}</small></div></div>
-    <div class="kpi"><span>${t('wPiece')} · <span class="num">${fmtLen(weights.length)}</span> ${t('m')}</span><div>${ok ? fmt(piece, 2) : '—'}<small>${t('kg')}</small></div></div>
-    <div class="kpi"><span>${t('wPerT')}</span><div>${ok && piece > 0 ? fmt(1000 / piece, 1) : '—'}</div></div>
-    <div class="kpi"><span>${t('wTotal')} · <span class="num">${fmt(weights.qty)}</span> ${t('pieces')}</span><div>${ok ? fmt((piece * weights.qty) / 1000, 3) : '—'}<small>${t('tonnes')}</small></div></div>
+    <div class="kpi hl"><span>${t('wKgM')} · <span class="num">Ø${weights.dia}</span></span><div>${fmt(kgm, 3)}<small>${t('kgm')}</small></div></div>
+    <div class="kpi"><span>${t('wPiece')} · <span class="num">${fmtLen(weights.length)}</span> ${t('m')}</span><div>${bar > 0 ? fmt(bar, 2) : '—'}<small>${t('kg')}</small></div></div>
+    <div class="kpi"><span>${t('wPerT')}</span><div>${bar > 0 ? fmt(1000 / bar, 1) : '—'}</div></div>
+    <div class="kpi"><span>${t('wTotal')} · <span class="num">${fmt(weights.qty)}</span> ${t('bars')}</span><div>${bar > 0 ? fmt((bar * weights.qty) / 1000, 3) : '—'}<small>${t('tonnes')}</small></div></div>
   </div>`;
 }
 
-function wFigure(c) {
-  const o = outline(c.f.shape, c.dims);
-  const s = 150 / Math.max(o.w, o.h, 1);
-  const dims = c.f.manual ? '' : Object.entries(c.dims).filter(([k]) => k !== 'designation' && k !== 'verified').map(([k, v]) => `${k} ${v}`).join(' · ');
-  return `<svg class="xsec" viewBox="-100 -100 200 200" aria-hidden="true"><path d="${o.d}" transform="scale(${s.toFixed(4)})" fill-rule="evenodd" vector-effect="non-scaling-stroke"/></svg>
-    <figcaption><b class="num">${esc(c.size)}</b><span>${t('hint_' + c.f.key)}</span>${dims ? `<span class="num">${esc(dims)}</span>` : ''}</figcaption>`;
-}
-
-function wWarn(c) {
-  if (!Number.isFinite(c.kgm)) return `<div class="notice warn">${t('wInvalid')}</div>`;
-  if (c.dims.verified === false) return `<div class="notice">${t('wUnverified')}</div>`;
-  return '';
+// Every diameter at the chosen length: the table a site keeps pinned on the wall.
+function wTable() {
+  const L = weights.length;
+  return `<table class="sum wref"><thead><tr><th>${t('diameter')}</th><th>${t('kgm')}</th><th>${t('wPiece')} (${fmtLen(L)} ${t('m')})</th><th>${t('wPerT')}</th></tr></thead>
+    <tbody>${DIAMETERS.map((d) => { const kgm = kgPerMetre(d); const bar = kgm * L; return `<tr class="${d === weights.dia ? 'on' : ''}" data-act="wdia" data-dia="${d}"><td class="dia">Ø${d}</td><td>${fmt(kgm, 3)}</td><td>${bar > 0 ? fmt(bar, 2) : '—'}</td><td>${bar > 0 ? fmt(1000 / bar, 1) : '—'}</td></tr>`; }).join('')}</tbody></table>`;
 }
 
 function wListHtml() {
   const L = weights.list;
   const kg = L.reduce((a, l) => a + l.kg, 0);
   return `<h3>${t('wList')}<span>${L.length} ${t('wItems')}</span></h3>
-    ${L.length ? `<table class="sum wl"><thead><tr><th>${t('wSection')}</th><th>${t('wSize')}</th><th>${t('wLength')}</th><th>${t('wQty')}</th><th>${t('colWeight')}</th><th></th></tr></thead>
-      <tbody>${L.map((l, i) => `<tr><td>${esc(famName(l.fam))}</td><td>${esc(l.size)}</td><td>${fmtLen(l.length)}</td><td>${fmt(l.qty)}</td><td>${fmt(l.kg, 1)}</td><td><button class="icon del" data-act="wdel" data-i="${i}" title="${t('remove')}" aria-label="${t('remove')}">${icon('trash')}</button></td></tr>`).join('')}</tbody>
+    ${L.length ? `<table class="sum wl"><thead><tr><th>${t('diameter')}</th><th>${t('colMark')}</th><th>${t('wLength')}</th><th>${t('wQty')}</th><th>${t('colWeight')}</th><th></th></tr></thead>
+      <tbody>${L.map((l, i) => `<tr><td class="dia">Ø${l.dia}</td><td>${esc(l.mark || '')}</td><td>${fmtLen(l.length)}</td><td>${fmt(l.qty)}</td><td>${fmt(l.kg, 1)}</td><td><button class="icon del" data-act="wdel" data-i="${i}" title="${t('remove')}" aria-label="${t('remove')}">${icon('trash')}</button></td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Σ</td><td></td><td></td><td></td><td>${fmt(kg / 1000, 3)} ${t('tonnes')}</td><td></td></tr></tfoot></table>`
     : `<div class="empty">${t('wEmpty')}</div>`}
     <div class="wtools">
@@ -428,41 +412,29 @@ function wListHtml() {
 }
 
 function weightsView() {
-  const c = wCurrent();
-  const f = c.f;
-  const fields = f.manual
-    ? f.manual.map(([k]) => `<label class="field">${t('wDim_' + k)}<input data-w="${k}" class="num" inputmode="decimal" value="${esc(weights.manual[f.key][k])}"></label>`).join('')
-    : `<label class="field">${t('wSize')}<select data-w="size">${f.sizes.map((s, i) => `<option value="${i}"${i === Math.min(weights.size, f.sizes.length - 1) ? ' selected' : ''}>${esc(s.designation)}</option>`).join('')}</select></label>`;
-  const method = f.manual ? `<div class="field">${t('wMethod')}
-      <div class="seg"><button data-act="wquick" data-q="0" class="${weights.quick ? '' : 'on'}">${t('wExact')}</button><button data-act="wquick" data-q="1" class="${weights.quick ? 'on' : ''}">${t('wQuick')}</button></div>
-      <small>${t(weights.quick ? 'wQuickHint' : 'wExactHint')}</small></div>` : '';
-  return `<div id="wkpis">${wKpis(c)}</div>
-    <div class="card"><div class="chips">${FAMILIES.map((x) => `<button class="chip${x.key === f.key ? ' on' : ''}" data-act="wfam" data-fam="${x.key}">${esc(famName(x.key))}</button>`).join('')}</div></div>
+  return `<div id="wkpis">${wKpis()}</div>
     <div class="wcols">
-      <div class="card">
-        <h3>${esc(famName(f.key))}<span>${esc(f.standard || t('wMarket'))}</span></h3>
-        <div class="wcalc">
-          <div class="form wform">${fields}
+      <div>
+        <div class="card">
+          <h3>${t('diameter')}<span>${t('wNoteShort')}</span></h3>
+          <div class="chips">${DIAMETERS.map((d) => `<button class="chip num${d === weights.dia ? ' on' : ''}" data-act="wdia" data-dia="${d}">Ø${d}</button>`).join('')}</div>
+          <div class="form wform">
             <label class="field">${t('wLength')}<input data-w="length" class="num" inputmode="decimal" value="${esc(weights.length)}"></label>
             <label class="field">${t('wQty')}<input data-w="qty" class="num" inputmode="numeric" value="${esc(weights.qty)}"></label>
-            ${method}
           </div>
-          <figure class="xfig" id="wfig">${wFigure(c)}</figure>
+          <button class="btn primary" data-act="wadd">${icon('plus')}${t('wAdd')}</button>
         </div>
-        <div id="wwarn">${wWarn(c)}</div>
-        <button class="btn primary" data-act="wadd">${icon('plus')}${t('wAdd')}</button>
+        <div class="card" id="wlist">${wListHtml()}</div>
       </div>
-      <div class="card" id="wlist">${wListHtml()}</div>
+      <div class="card" id="wref">${wTable()}</div>
     </div>
     <p class="muted" style="font-size:12px">${t('wNote')}</p>`;
 }
 
 // Refresh the figures in place so the field being typed in keeps focus.
 function wRefresh() {
-  const c = wCurrent();
-  $('#wkpis').innerHTML = wKpis(c);
-  $('#wfig').innerHTML = wFigure(c);
-  $('#wwarn').innerHTML = wWarn(c);
+  $('#wkpis').innerHTML = wKpis();
+  $('#wref').innerHTML = wTable();
 }
 const wListRefresh = () => { wSave(); $('#wlist').innerHTML = wListHtml(); };
 
@@ -557,33 +529,30 @@ const actions = {
   },
   dup(i) { project.rows.splice(i + 1, 0, { ...project.rows[i] }); touch(); renderView(); },
   del(i) { project.rows.splice(i, 1); touch(); renderView(); },
-  wfam(_, btn) {
-    const f = family(btn.dataset.fam);
-    if (f.key !== weights.fam) { weights.fam = f.key; weights.size = wDefaultSize(f); }
-    wSave(); renderView();
+  wdia(_, el) {
+    weights.dia = Number(el.dataset.dia);
+    wSave();
+    document.querySelectorAll('.chip[data-dia]').forEach((c) => c.classList.toggle('on', Number(c.dataset.dia) === weights.dia));
+    wRefresh();
   },
-  wquick(_, btn) { weights.quick = btn.dataset.q === '1'; wSave(); renderView(); },
   wadd() {
-    const c = wCurrent();
-    const { length, qty } = weights;
-    if (!Number.isFinite(c.kgm) || !(length > 0) || !(qty > 0)) return toast(t('wInvalid'));
-    weights.list.push({ fam: c.f.key, size: c.size, length, qty, kgm: c.kgm, kg: c.kgm * length * qty });
+    const { dia, length, qty } = weights;
+    if (!(length > 0) || !(qty > 0)) return;
+    const kgm = kgPerMetre(dia);
+    weights.list.push({ dia, mark: '', length, qty, kgm, kg: kgm * length * qty });
     wListRefresh();
   },
   wsched() {
     const lines = project.rows.map((r) => ({ r, tot: rowTotals(r) })).filter(({ tot }) => Number.isFinite(tot.cut) && tot.count > 0);
     if (!lines.length) return toast(t('emptySchedule'));
     for (const { r, tot } of lines) {
-      weights.list.push({ fam: 'rebar', size: `Ø${r.dia}${r.mark ? ' · ' + r.mark : ''}`, length: tot.cut / 1000, qty: tot.count, kgm: kgPerMetre(r.dia), kg: tot.kg });
+      weights.list.push({ dia: r.dia, mark: r.mark, length: tot.cut / 1000, qty: tot.count, kgm: kgPerMetre(r.dia), kg: tot.kg });
     }
     wListRefresh();
   },
   wdel(i) { weights.list.splice(i, 1); wListRefresh(); },
   wclear() { if (confirm(t('wConfirmClear'))) { weights.list = []; wListRefresh(); } },
-  async wxlsx() {
-    const lines = weights.list.map((l) => ({ ...l, section: famName(l.fam) }));
-    await saveFile(`${fileBase()} - ${t('wSheet')}.xlsx`, weightsWorkbook(lines), ['xlsx']);
-  },
+  async wxlsx() { await saveFile(`${fileBase()} - ${t('wSheet')}.xlsx`, weightsWorkbook(weights.list), ['xlsx']); },
   menu(_, btn) {
     const m = $('#exportMenu');
     const open = !m.classList.contains('open');
@@ -610,11 +579,8 @@ document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.id === 'pname') { project.name = el.value; touch(); return; }
   if (el.dataset.w) {
-    const k = el.dataset.w;
     const v = Math.max(0, Number(el.value) || 0);
-    if (k === 'size') weights.size = Number(el.value) || 0;
-    else if (k === 'length' || k === 'qty') weights[k] = k === 'qty' ? Math.floor(v) : v;
-    else weights.manual[weights.fam][k] = v;
+    weights[el.dataset.w] = el.dataset.w === 'qty' ? Math.floor(v) : v;
     wSave(); wRefresh();
     return;
   }

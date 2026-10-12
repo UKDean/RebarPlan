@@ -17,6 +17,7 @@ Arabic · English · 简体中文 — free, offline, open source.</p>
 - **Cutting plan.** For each diameter it finds the cutting patterns that use the fewest stock bars, with 12 m bars or any mix of 6, 9, 12 and 18 m. On test schedules the plan is never more than one bar above the LP lower bound, and usually equal to it.
 - **Cost.** Enter a price per tonne to see the steel cost and how much the plan saves against cutting each mark on its own.
 - **Workshop sheet and labels.** A printable list for the cutting operator ("bars 1–120: cut 3.20 × 2 + 2.65 × 2, scrap 0.30") and labels for each bundle.
+- **Rebar weights.** Weight per metre, per bar and per order for every diameter, a reference table of bars per tonne, and a weight list that can take the whole bar schedule and export to Excel.
 - **Export.** Excel (schedule, summary by diameter, cutting plan), PDF through the Windows print dialog, or **send by email** with the Excel file attached.
 - **Private.** Everything runs on your computer. No account, no tracking. See [PRIVACY.md](PRIVACY.md).
 
@@ -59,6 +60,7 @@ MIT © Omar Mashharawi. Fonts: IBM Plex (SIL Open Font License). Excel support: 
 - أدخل العلامات بالأشكال والأبعاد أو استوردها من Excel، فيحسب طول القص حسب BS 8666 أو ACI والكود السعودي، والوزن لكل قطر.
 - يحسب أفضل طريقة لقص الأسياخ (12 م أو أطوال متعددة) بأقل هدر، ويعرض الوفر بالطن وبالريال.
 - ورقة جاهزة لعامل القص وملصقات للحزم.
+- حاسبة أوزان الحديد: الوزن لكل متر وللسيخ وللطلبية، وعدد الأسياخ في الطن لكل قطر.
 - تصدير Excel وPDF، أو إرسال الملف بالإيميل مباشرة.
 - يعمل بدون إنترنت، بدون حساب أو تتبع.
 
