@@ -2,10 +2,12 @@
 
 <h1 align="center">RebarPlan</h1>
 
-<p align="center">Bar bending schedule and rebar cutting optimiser for Windows.<br>
+<p align="center">Bar bending schedule and rebar cutting optimiser for Windows and Mac.<br>
 Arabic · English · 简体中文 — free, offline, open source.</p>
 
-<p align="center"><a href="https://github.com/UKDean/RebarPlan/releases/latest"><b>Download for Windows</b></a> · <a href="https://mashharawi.com/tools/rebarplan/">Website</a> · <a href="PRIVACY.md">Privacy &amp; support</a></p>
+<p align="center"><a href="https://apps.microsoft.com/detail/9PM9HL3XFBZ3?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="161" alt="Get it from Microsoft"></a></p>
+
+<p align="center"><a href="https://github.com/UKDean/RebarPlan/releases/latest"><b>Download for Windows or Mac</b></a> · <a href="https://mashharawi.com/tools/rebarplan/">Website</a> · <a href="PRIVACY.md">Privacy &amp; support</a></p>
 
 <p align="center"><img src="docs/screenshot-cutting.png" width="860" alt="RebarPlan cutting plan"></p>
 
@@ -20,7 +22,8 @@ Arabic · English · 简体中文 — free, offline, open source.</p>
 
 ## Install
 
-Download `RebarPlan_x.y.z_x64-setup.exe` from [Releases](https://github.com/UKDean/RebarPlan/releases/latest) and run it. The installer is not code-signed yet, so Windows SmartScreen may warn: choose **More info → Run anyway**.
+- **Windows:** install from the [Microsoft Store](https://apps.microsoft.com/detail/9PM9HL3XFBZ3) (recommended, no warnings), or download `RebarPlan_x.y.z_x64-setup.exe` from [Releases](https://github.com/UKDean/RebarPlan/releases/latest). The direct installer is not code-signed yet, so SmartScreen may warn: choose **More info → Run anyway**.
+- **Mac:** download `RebarPlan_x.y.z_universal.dmg` from [Releases](https://github.com/UKDean/RebarPlan/releases/latest). It is signed and notarized by Apple. Mac App Store version coming soon.
 
 ## Build from source
 
