@@ -157,6 +157,32 @@ tr:hover .rowtools,tr:focus-within .rowtools{opacity:1}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);padding:10px 16px;border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
 .toast.show{opacity:1}
 
+/* weight calculator */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{all:unset;cursor:pointer;padding:6px 13px;border:1px solid var(--line2);border-radius:999px;color:var(--mute);font-size:13px}
+.chip:hover{color:var(--text);border-color:var(--faint)}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:500}
+.chip:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.wcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.wcalc{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:18px;align-items:start;margin-bottom:16px}
+.form.wform{grid-template-columns:1fr}
+.field small{color:var(--faint);font-size:11px;line-height:1.45}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;width:max-content}
+.seg button{all:unset;cursor:pointer;padding:7px 13px;color:var(--mute)}
+.seg button.on{background:var(--acc-soft);color:var(--text)}
+.seg button:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.xfig{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 12px;display:grid;gap:10px;justify-items:center;text-align:center}
+.xsec{width:170px;height:170px}
+.xsec path{fill:var(--acc-soft);stroke:var(--acc);stroke-width:1.6;stroke-linejoin:round}
+.xfig figcaption{display:grid;gap:3px;font-size:12px;color:var(--mute)}
+.xfig figcaption b{color:var(--text);font-size:16px;font-weight:500}
+#wwarn .notice{margin:0 0 14px}
+.wl td{white-space:nowrap}
+.wl td:nth-child(2){text-align:start}
+.wl td:first-child{font-family:var(--sans)}
+.wtools{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+@media (max-width:1400px){.wcols{grid-template-columns:1fr}}
+
 @media (max-width:1600px){.cols{grid-template-columns:1fr}.cols #sumcol .card{max-width:640px}}
 @media (max-width:1180px){.kpis{grid-template-columns:repeat(2,1fr)}}
 

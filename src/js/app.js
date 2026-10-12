@@ -1,7 +1,8 @@
 import { DIAMETERS, SHAPES, cutLength, rowTotals, summary, kgPerMetre, shapesFor, shortLegs } from './bbs.js';
 import { optimise } from './optimizer.js';
 import { LANGS, t, setLang, getLang } from './i18n.js';
-import { importSchedule, exportWorkbook, templateWorkbook, patternName } from './excel.js';
+import { importSchedule, exportWorkbook, templateWorkbook, weightsWorkbook, patternName } from './excel.js';
+import { FAMILIES, family, kgPerMetre as sectionKgPerMetre, designation, outline } from './sections.js';
 import { pickFile, saveFile, emailFile, openLink, appVersion } from './platform.js';
 
 const SUPPORT_EMAIL = 'info@mashharawi.com';
@@ -67,7 +68,7 @@ let plans = {};          // dia -> optimiser result
 let planKey = '';        // schedule fingerprint the plans were built from
 let view = 'schedule';
 let dirty = false;
-let version = '1.0.0';
+let version = '1.1.0';
 
 const persist = () => store.set(AUTOSAVE, JSON.stringify(project));
 const fingerprint = () => JSON.stringify([project.rows.map((r) => [r.dia, cutLength(r), r.qty]), project.settings]);
@@ -98,6 +99,7 @@ const ICONS = {
   schedule: '<path d="M4 5h16M4 10h16M4 15h16M4 20h10"/>',
   cutting: '<path d="M3 8h18M3 16h18"/><path d="M9 5v6M15 13v6"/>',
   workshop: '<path d="M4 20l7-7M14 4l6 6-4 4-6-6z"/><path d="M9 15l-5 5"/>',
+  weights: '<path d="M5 20h14l-2.5-10h-9z"/><circle cx="12" cy="6.5" r="2.5"/>',
   report: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
@@ -129,7 +131,7 @@ const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 // ---------- shell ----------
 
-const NAV = { schedule: 'navSchedule', cutting: 'navCutting', workshop: 'navWorkshop', report: 'navReport', settings: 'navSettings', about: 'navAbout' };
+const NAV = { schedule: 'navSchedule', cutting: 'navCutting', workshop: 'navWorkshop', weights: 'navWeights', report: 'navReport', settings: 'navSettings', about: 'navAbout' };
 
 function renderShell() {
   const L = getLang();
@@ -177,7 +179,7 @@ function renderShell() {
 function renderView() {
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
   const el = $('#view');
-  el.innerHTML = { schedule: scheduleView, cutting: cuttingView, workshop: workshopView, report: reportView, settings: settingsView, about: aboutView }[view]();
+  el.innerHTML = { schedule: scheduleView, cutting: cuttingView, workshop: workshopView, weights: weightsView, report: reportView, settings: settingsView, about: aboutView }[view]();
   el.scrollTop = 0;
 }
 
@@ -356,6 +358,114 @@ function workshopView() {
     <div class="card"><h3>${t('labels')}<span class="no-print">${t('labelsHint')}</span></h3><div class="labels">${labels}</div></div>`;
 }
 
+// ---------- weight calculator ----------
+
+// Kept apart from the project: a weight list is a quick enquiry, not part of
+// the bar schedule, so it survives New/Open and is not saved in .rebarplan files.
+const WEIGHTS = 'rebarplan.weights';
+const wDefaultSize = (f) => (f.sizes ? Math.floor(f.sizes.length / 3) : 0);
+function wDefaults() {
+  const manual = {};
+  for (const f of FAMILIES) if (f.manual) manual[f.key] = Object.fromEntries(f.manual);
+  return { fam: 'rebar', size: DIAMETERS.indexOf(16), manual, quick: false, length: 12, qty: 100, list: [] };
+}
+function wLoad() {
+  const d = wDefaults();
+  try {
+    const w = JSON.parse(store.get(WEIGHTS));
+    if (!w || !Array.isArray(w.list)) return d;
+    return { ...d, ...w, manual: { ...d.manual, ...w.manual }, fam: family(w.fam).key };
+  } catch { return d; }
+}
+let weights = wLoad();
+const wSave = () => store.set(WEIGHTS, JSON.stringify(weights));
+const famName = (k) => { const n = t('fam_' + k); return n === 'fam_' + k ? k.toUpperCase() : n; };
+const fmtLen = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 3 }) : '—');
+
+function wCurrent() {
+  const f = family(weights.fam);
+  const dims = f.manual ? weights.manual[f.key] : f.sizes[Math.min(weights.size, f.sizes.length - 1)];
+  return { f, dims, kgm: sectionKgPerMetre(f.shape, dims, weights.quick), size: designation(f, dims) };
+}
+
+function wKpis(c) {
+  const ok = Number.isFinite(c.kgm);
+  const piece = c.kgm * weights.length;
+  return `<div class="kpis">
+    <div class="kpi hl"><span>${t('wKgM')}</span><div>${ok ? fmt(c.kgm, 3) : '—'}<small>${t('kgm')}</small></div></div>
+    <div class="kpi"><span>${t('wPiece')} · <span class="num">${fmtLen(weights.length)}</span> ${t('m')}</span><div>${ok ? fmt(piece, 2) : '—'}<small>${t('kg')}</small></div></div>
+    <div class="kpi"><span>${t('wPerT')}</span><div>${ok && piece > 0 ? fmt(1000 / piece, 1) : '—'}</div></div>
+    <div class="kpi"><span>${t('wTotal')} · <span class="num">${fmt(weights.qty)}</span> ${t('pieces')}</span><div>${ok ? fmt((piece * weights.qty) / 1000, 3) : '—'}<small>${t('tonnes')}</small></div></div>
+  </div>`;
+}
+
+function wFigure(c) {
+  const o = outline(c.f.shape, c.dims);
+  const s = 150 / Math.max(o.w, o.h, 1);
+  const dims = c.f.manual ? '' : Object.entries(c.dims).filter(([k]) => k !== 'designation' && k !== 'verified').map(([k, v]) => `${k} ${v}`).join(' · ');
+  return `<svg class="xsec" viewBox="-100 -100 200 200" aria-hidden="true"><path d="${o.d}" transform="scale(${s.toFixed(4)})" fill-rule="evenodd" vector-effect="non-scaling-stroke"/></svg>
+    <figcaption><b class="num">${esc(c.size)}</b><span>${t('hint_' + c.f.key)}</span>${dims ? `<span class="num">${esc(dims)}</span>` : ''}</figcaption>`;
+}
+
+function wWarn(c) {
+  if (!Number.isFinite(c.kgm)) return `<div class="notice warn">${t('wInvalid')}</div>`;
+  if (c.dims.verified === false) return `<div class="notice">${t('wUnverified')}</div>`;
+  return '';
+}
+
+function wListHtml() {
+  const L = weights.list;
+  const kg = L.reduce((a, l) => a + l.kg, 0);
+  return `<h3>${t('wList')}<span>${L.length} ${t('wItems')}</span></h3>
+    ${L.length ? `<table class="sum wl"><thead><tr><th>${t('wSection')}</th><th>${t('wSize')}</th><th>${t('wLength')}</th><th>${t('wQty')}</th><th>${t('colWeight')}</th><th></th></tr></thead>
+      <tbody>${L.map((l, i) => `<tr><td>${esc(famName(l.fam))}</td><td>${esc(l.size)}</td><td>${fmtLen(l.length)}</td><td>${fmt(l.qty)}</td><td>${fmt(l.kg, 1)}</td><td><button class="icon del" data-act="wdel" data-i="${i}" title="${t('remove')}" aria-label="${t('remove')}">${icon('trash')}</button></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Σ</td><td></td><td></td><td></td><td>${fmt(kg / 1000, 3)} ${t('tonnes')}</td><td></td></tr></tfoot></table>`
+    : `<div class="empty">${t('wEmpty')}</div>`}
+    <div class="wtools">
+      <button class="btn" data-act="wsched">${icon('schedule')}${t('wAddSchedule')}</button>
+      ${L.length ? `<button class="btn" data-act="wxlsx">${icon('excel')}${t('exportExcel')}</button><button class="btn ghost" data-act="wclear">${icon('trash')}${t('wClear')}</button>` : ''}
+    </div>`;
+}
+
+function weightsView() {
+  const c = wCurrent();
+  const f = c.f;
+  const fields = f.manual
+    ? f.manual.map(([k]) => `<label class="field">${t('wDim_' + k)}<input data-w="${k}" class="num" inputmode="decimal" value="${esc(weights.manual[f.key][k])}"></label>`).join('')
+    : `<label class="field">${t('wSize')}<select data-w="size">${f.sizes.map((s, i) => `<option value="${i}"${i === Math.min(weights.size, f.sizes.length - 1) ? ' selected' : ''}>${esc(s.designation)}</option>`).join('')}</select></label>`;
+  const method = f.manual ? `<div class="field">${t('wMethod')}
+      <div class="seg"><button data-act="wquick" data-q="0" class="${weights.quick ? '' : 'on'}">${t('wExact')}</button><button data-act="wquick" data-q="1" class="${weights.quick ? 'on' : ''}">${t('wQuick')}</button></div>
+      <small>${t(weights.quick ? 'wQuickHint' : 'wExactHint')}</small></div>` : '';
+  return `<div id="wkpis">${wKpis(c)}</div>
+    <div class="card"><div class="chips">${FAMILIES.map((x) => `<button class="chip${x.key === f.key ? ' on' : ''}" data-act="wfam" data-fam="${x.key}">${esc(famName(x.key))}</button>`).join('')}</div></div>
+    <div class="wcols">
+      <div class="card">
+        <h3>${esc(famName(f.key))}<span>${esc(f.standard || t('wMarket'))}</span></h3>
+        <div class="wcalc">
+          <div class="form wform">${fields}
+            <label class="field">${t('wLength')}<input data-w="length" class="num" inputmode="decimal" value="${esc(weights.length)}"></label>
+            <label class="field">${t('wQty')}<input data-w="qty" class="num" inputmode="numeric" value="${esc(weights.qty)}"></label>
+            ${method}
+          </div>
+          <figure class="xfig" id="wfig">${wFigure(c)}</figure>
+        </div>
+        <div id="wwarn">${wWarn(c)}</div>
+        <button class="btn primary" data-act="wadd">${icon('plus')}${t('wAdd')}</button>
+      </div>
+      <div class="card" id="wlist">${wListHtml()}</div>
+    </div>
+    <p class="muted" style="font-size:12px">${t('wNote')}</p>`;
+}
+
+// Refresh the figures in place so the field being typed in keeps focus.
+function wRefresh() {
+  const c = wCurrent();
+  $('#wkpis').innerHTML = wKpis(c);
+  $('#wfig').innerHTML = wFigure(c);
+  $('#wwarn').innerHTML = wWarn(c);
+}
+const wListRefresh = () => { wSave(); $('#wlist').innerHTML = wListHtml(); };
+
 function aboutView() {
   return `<div class="card prose"><h3>${t('aboutTitle')}</h3>
     <p>${t('aboutPrivacy')}</p>
@@ -447,6 +557,33 @@ const actions = {
   },
   dup(i) { project.rows.splice(i + 1, 0, { ...project.rows[i] }); touch(); renderView(); },
   del(i) { project.rows.splice(i, 1); touch(); renderView(); },
+  wfam(_, btn) {
+    const f = family(btn.dataset.fam);
+    if (f.key !== weights.fam) { weights.fam = f.key; weights.size = wDefaultSize(f); }
+    wSave(); renderView();
+  },
+  wquick(_, btn) { weights.quick = btn.dataset.q === '1'; wSave(); renderView(); },
+  wadd() {
+    const c = wCurrent();
+    const { length, qty } = weights;
+    if (!Number.isFinite(c.kgm) || !(length > 0) || !(qty > 0)) return toast(t('wInvalid'));
+    weights.list.push({ fam: c.f.key, size: c.size, length, qty, kgm: c.kgm, kg: c.kgm * length * qty });
+    wListRefresh();
+  },
+  wsched() {
+    const lines = project.rows.map((r) => ({ r, tot: rowTotals(r) })).filter(({ tot }) => Number.isFinite(tot.cut) && tot.count > 0);
+    if (!lines.length) return toast(t('emptySchedule'));
+    for (const { r, tot } of lines) {
+      weights.list.push({ fam: 'rebar', size: `Ø${r.dia}${r.mark ? ' · ' + r.mark : ''}`, length: tot.cut / 1000, qty: tot.count, kgm: kgPerMetre(r.dia), kg: tot.kg });
+    }
+    wListRefresh();
+  },
+  wdel(i) { weights.list.splice(i, 1); wListRefresh(); },
+  wclear() { if (confirm(t('wConfirmClear'))) { weights.list = []; wListRefresh(); } },
+  async wxlsx() {
+    const lines = weights.list.map((l) => ({ ...l, section: famName(l.fam) }));
+    await saveFile(`${fileBase()} - ${t('wSheet')}.xlsx`, weightsWorkbook(lines), ['xlsx']);
+  },
   menu(_, btn) {
     const m = $('#exportMenu');
     const open = !m.classList.contains('open');
@@ -472,6 +609,15 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.id === 'pname') { project.name = el.value; touch(); return; }
+  if (el.dataset.w) {
+    const k = el.dataset.w;
+    const v = Math.max(0, Number(el.value) || 0);
+    if (k === 'size') weights.size = Number(el.value) || 0;
+    else if (k === 'length' || k === 'qty') weights[k] = k === 'qty' ? Math.floor(v) : v;
+    else weights.manual[weights.fam][k] = v;
+    wSave(); wRefresh();
+    return;
+  }
   if (el.dataset.set) {
     if (['kerf', 'minReuse', 'price'].includes(el.dataset.set)) { project.settings[el.dataset.set] = Math.max(0, Number(el.value) || 0); touch(); }
     return;

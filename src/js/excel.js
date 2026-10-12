@@ -118,4 +118,21 @@ export function templateWorkbook() {
   return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
 }
 
+// The weight calculator's list: one line per section, size, length and count.
+export function weightsWorkbook(lines) {
+  const XLSX = window.XLSX;
+  const wb = XLSX.utils.book_new();
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const aoa = [[t('wSection'), t('wSize'), t('wLength'), t('wQty'), t('kgm'), t('colWeight')]];
+  let kg = 0;
+  for (const l of lines) {
+    kg += l.kg;
+    aoa.push([l.section, l.size, l.length, l.qty, Math.round(l.kgm * 1000) / 1000, r2(l.kg)]);
+  }
+  aoa.push(['Σ', '', '', '', '', r2(kg)]);
+  XLSX.utils.book_append_sheet(wb, sheet(aoa, [18, 18, 12, 10, 10, 14]), sheetName(t('wSheet')));
+  wb.Workbook = { Views: [{ RTL: getLang() === 'ar' }] };
+  return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+}
+
 export { patternName };
