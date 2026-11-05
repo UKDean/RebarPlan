@@ -515,7 +515,9 @@ const actions = {
       fileName: `${fileBase()}.xlsx`,
       bytes: exportWorkbook(project, plans),
     });
-    if (result !== 'attached') toast(t('emailAttach', { file: result }), 7000);
+    if (!result || result === 'attached') return;
+    if (result.chosen) toast(t('emailAttachChosen', { file: result.file }), 7000);
+    else toast(t('emailAttach', { file: result }), 7000);
   },
   printWs() { setTimeout(() => window.print(), 100); },
   async template() { await saveFile('RebarPlan-template.xlsx', templateWorkbook(), ['xlsx']); },

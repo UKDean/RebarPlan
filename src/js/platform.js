@@ -4,6 +4,7 @@
 const tauri = window.__TAURI__;
 export const isDesktop = Boolean(tauri);
 
+const isMac = /Mac/i.test(navigator.userAgent);
 const baseName = (p) => String(p).split(/[\\/]/).pop();
 
 // Returns { name, bytes } or null if the user cancelled.
@@ -39,15 +40,26 @@ export async function saveFile(defaultName, bytes, extensions) {
 
 // Opens a new message in the user's mail program with the file attached.
 // Returns 'attached' when the mail program took the attachment, or the file
-// name the user has to attach by hand after the fallback.
+// name the user has to attach by hand after the fallback ({ file, chosen }
+// on macOS, where the user picked the folder), or null if they cancelled.
 export async function emailFile({ subject, body, fileName, bytes }) {
   if (isDesktop) {
     try {
       await tauri.core.invoke('send_mail', { subject, body, fileName, bytes: Array.from(bytes) });
       return 'attached';
     } catch {
-      // No MAPI mail program (for example the new Outlook): save to Downloads
-      // and open a plain mailto: message instead.
+      // macOS (sandboxed for the Mac App Store): the app may only write where
+      // the user chooses, so ask with a save panel, then open a mailto: message.
+      if (isMac) {
+        const path = await tauri.dialog.save({ defaultPath: fileName, filters: [{ name: 'xlsx', extensions: ['xlsx'] }] });
+        if (!path) return null;
+        await tauri.fs.writeFile(path, bytes);
+        await tauri.opener.openUrl(mailto(subject, body));
+        await tauri.opener.revealItemInDir(path).catch(() => {});
+        return { file: baseName(path), chosen: true };
+      }
+      // Windows with no MAPI mail program (for example the new Outlook): save
+      // to Downloads and open a plain mailto: message instead.
       const dir = await tauri.path.downloadDir();
       const path = await tauri.path.join(dir, fileName);
       await tauri.fs.writeFile(path, bytes);

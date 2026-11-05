@@ -8,8 +8,10 @@
   <!-- Open and save the project and Excel files the user picks. -->
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>
-  <!-- "Send by email" fallback saves the Excel file to Downloads. -->
-  <key>com.apple.security.files.downloads.read-write</key>
+  <!-- Required by WKWebView: inside the sandbox the web view stays blank
+       without it, even though the app loads only its own bundled pages.
+       The app itself makes no network requests. -->
+  <key>com.apple.security.network.client</key>
   <true/>
   <key>com.apple.application-identifier</key>
   <string>TEAM_ID.com.mashharawi.rebarplan</string>

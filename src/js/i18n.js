@@ -27,6 +27,7 @@ const S = {
   email: { ar: 'إرسال بالإيميل', en: 'Send by email', zh: '通过邮件发送' },
   emailSubject: { ar: 'جدول التفريد وخطة القص – {name}', en: 'Bar schedule and cutting plan – {name}', zh: '钢筋下料表与切割方案 – {name}' },
   emailBody: { ar: 'مرفق جدول التفريد وخطة القص لمشروع {name}.\nالوزن الإجمالي: {t} طن\nعدد الأسياخ: {bars}\n\nأُعدّ بواسطة RebarPlan', en: 'Attached: bar schedule and cutting plan for {name}.\nTotal weight: {t} t\nStock bars: {bars}\n\nPrepared with RebarPlan', zh: '附件为 {name} 的钢筋下料表与切割方案。\n总重量：{t} 吨\n原材根数：{bars}\n\n由 RebarPlan 生成' },
+  emailAttachChosen: { ar: 'فتحت رسالة جديدة. أرفق الملف الذي حفظته: {file}', en: 'A new message is open. Attach the file you just saved: {file}', zh: '已打开新邮件。请将刚保存的文件添加为附件：{file}' },
   emailAttach: { ar: 'فتحت رسالة جديدة. الملف محفوظ في مجلد التنزيلات، أرفقه بالرسالة: {file}', en: 'A new message is open. The file is in your Downloads folder; attach it: {file}', zh: '已打开新邮件。文件位于“下载”文件夹，请添加为附件：{file}' },
   calculate: { ar: 'احسب خطة القص', en: 'Calculate cutting plan', zh: '计算切割方案' },
   addRow: { ar: 'إضافة علامة', en: 'Add bar mark', zh: '添加编号' },

@@ -9,3 +9,4 @@ src-tauri/tauri.appstore.ci.json
 *.p8
 dist/
 src-tauri/Entitlements.appstore.local.plist
+sandbox-test-*.log
